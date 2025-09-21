@@ -11,69 +11,31 @@
 #define CMD_WRITE_DISABLE 0x04
 #define CMD_READ_DATA_4BYTE_ADDR 0x13
 #define CMD_WRITE_PAGE_4BYTE_ADDR 0x12
-
+#define CMD_CHIP_ERASE 0x60
 
 void spiCommand(uint8_t* err, uint8_t c) { 
     uint8_t res = SPI.transfer(c);
-    if(res != 0 && Serial) {
-        *err = 1;
+    if(res == 0) {
+        return;
+    }
+    *err = 1;
+    if(Serial) {
         Serial.printf("Not good, byte command (%x) yielded results (%x)\r\n", c, res);
     }
 }
 
-uint8_t* spiCommandMultiple(uint32_t expected_len, const char* ip, ...) { 
-    const char* temp_ip = ip;
-    uint32_t size_in_bytes_to_send = 0;
-
-    while(*temp_ip != '\0') {
-        if(*temp_ip == 'i') { 
-            size_in_bytes_to_send+=4;
-        } else if(*temp_ip == 'b') {
-            size_in_bytes_to_send+=1;
-        }
-    }
-
-    uint8_t* input_args = (uint8_t*)calloc(size_in_bytes_to_send, sizeof(uint8_t));
-
-    va_list args;
-
-    va_start(args, ip);
-
-    while(*temp_ip != '\0') {
-        if(*temp_ip == 'i') { 
-            uint32_t tmp = va_arg(args, uint32_t);
-            *(input_args) = (tmp >> 24) & 0xFF;
-            *(input_args+1) = (tmp >> 16) & 0xFF;
-            *(input_args+2) = (tmp >> 8) & 0xFF;
-            *(input_args+3) = (tmp) & 0xFF;
-            input_args += 4;
-        } else if(*temp_ip == 'b') {
-            uint8_t tmp = va_arg(args, uint8_t);
-            *(input_args) = tmp;
-            input_args++;
-        }
-    }
-
-    va_end(args);
-
-    uint8_t* res = (uint8_t*)calloc(expected_len, sizeof(uint8_t));    
-
-    SPI.transferBytes(input_args, res, expected_len);
-
-    if(input_args != NULL) {
-        free(input_args);
-    }
-
-    return res;
-}
 
 
 void spiCommand32(uint8_t* err, uint32_t c) { 
     uint32_t res = SPI.transfer32(c);
-    if(res != 0 && Serial) {
-        *err = 1;
+    if(res == 0) {
+        return;
+    }
+    *err = 1;
+    if(Serial) {
         Serial.printf("Not good, int command (%x) yielded results (%x)\r\n", c, res);
     }
+
 }
 
 uint8_t spiGetByte() { 
@@ -101,9 +63,11 @@ Winbond25Q256JV::Winbond25Q256JV(uint8_t flash_cs_pin, uint8_t flash_hold_pin) {
     digitalWrite(cs_pin, 1);
     digitalWrite(hold_pin, 1);
     SPI.begin();
-    delayMicroseconds(10);
+    delay(50);
 
     uint32_t version = getVersion();
+
+    Serial.printf("Version: %x\r\n", version);
 
     if(getManufacturerId(version) != 0xef) {
         return;
@@ -140,16 +104,14 @@ template <typename T>
 T Winbond25Q256JV::transaction(std::function<T(uint8_t* err)> func) {
     T res = 0;
     uint8_t err;
+    digitalWrite(cs_pin, 1);
     do { 
         err = 0;
-        delayMicroseconds(500);
-        digitalWrite(cs_pin, 1);
         SPI.beginTransaction(spi_settings);
         digitalWrite(cs_pin, 0);
         res = func(&err);
         digitalWrite(cs_pin, 1);
         SPI.endTransaction();
-        delayMicroseconds(500);
     } while(err);
 
     return res;
@@ -191,6 +153,10 @@ void Winbond25Q256JV::writeEnable()
         spiCommand(err, CMD_WRITE_ENABLE);
         return 0;
     });
+    
+    while(!isWLE()) {
+        Serial.print(".");
+    }
 }
 
 void Winbond25Q256JV::writeDisable()
@@ -262,8 +228,7 @@ bool Winbond25Q256JV::isOK()
 uint8_t *Winbond25Q256JV::read(uint32_t addr, uint32_t length)
 {
     while(isBusy()) {
-        Serial.println("Device is busy");
-        delay(200);
+        Serial.print(".");
     }
     return transaction<uint8_t*>([&](uint8_t* err) { 
         uint8_t* bytes = (uint8_t*) calloc(length, sizeof(uint8_t));
@@ -278,18 +243,18 @@ uint8_t *Winbond25Q256JV::read(uint32_t addr, uint32_t length)
         for(uint32_t i = 0; i < length; i++) {
             uint8_t byte = spiGetByte();
             *(bytes+i) = byte;
-            Serial.printf("%x\r\n", byte);
         }
 
         return bytes;
     });
 }
 
-void Winbond25Q256JV::write(uint32_t addr, uint8_t *data, uint32_t length)
+void Winbond25Q256JV::write(uint32_t addr, const uint8_t *data, uint32_t length)
 {
+    Serial.printf("Writing to %x, len %d\r\n", addr, length);
+
     while(isBusy()) {
-        Serial.println("Device is busy");
-        delay(5);
+        Serial.print(".");
     }
     uint32_t page_addr = addr & 0xFFFFFF00; // just trim the last byte
     // find offset from start
@@ -302,13 +267,13 @@ void Winbond25Q256JV::write(uint32_t addr, uint8_t *data, uint32_t length)
     // we want to keep track of written bytes
     uint32_t bytes_written = 0;
     // enable writing
-    writeEnable();
 
     while(bytes_written != length) {   
+        writeEnable();
+
         // page write
         uint8_t bw = transaction<uint8_t>([&](uint8_t* err){
             int bytesw = 0;
-            Serial.println(page_addr);
 
             spiCommand(err, CMD_WRITE_PAGE_4BYTE_ADDR);
             spiCommand32(err, page_addr);
@@ -317,7 +282,8 @@ void Winbond25Q256JV::write(uint32_t addr, uint8_t *data, uint32_t length)
             }
             // we need to write the page
             for(uint32_t i = 0; i < std::min((uint32_t)(256 - offset), length - bytes_written); i++ ){   
-                // Serial.printf("HERE %d %x: %d %d\r\n",offset, page_addr + offset + i, length, bytesw);
+                //Serial.print("Writing byte:");
+                //Serial.println(*(data+i));
                 spiCommand(err, *(data+i));
                 bytesw++;
             }
@@ -326,7 +292,6 @@ void Winbond25Q256JV::write(uint32_t addr, uint8_t *data, uint32_t length)
         
         while(isBusy()) { 
             Serial.print(".");
-            delay(5);
         }
         // move to other page
         bytes_written += bw;
@@ -337,3 +302,23 @@ void Winbond25Q256JV::write(uint32_t addr, uint8_t *data, uint32_t length)
     writeDisable();
 }
 
+void Winbond25Q256JV::chipErase()
+{
+    writeEnable();
+    transaction<uint8_t>([&](uint8_t* err){
+        spiCommand(err, CMD_CHIP_ERASE);
+        return 0;
+    });
+
+    while(isBusy()) { 
+        Serial.print(".");
+    }
+}
+uint32_t Winbond25Q256JV::totalMemory()
+{
+    return 33554432;
+}
+
+FlashStream* Winbond25Q256JV::getFlashStream() {
+    return new FlashStream(this);
+}

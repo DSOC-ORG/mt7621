@@ -6,13 +6,37 @@
 #include "SPI.h"
 #include <functional>
 
+class Winbond25Q256JV;
+
+class FlashStream: public Stream {
+    protected: 
+        uint32_t currAddr = 0;
+        uint32_t load_addr = 0;
+        uint8_t* read_data_buf;
+        Winbond25Q256JV* flash;
+    public:
+        FlashStream(Winbond25Q256JV* flash);
+        ~FlashStream();
+        int available() override;
+        int read() override;
+        int peek() override;
+        void flush() override;
+
+        size_t write(const uint8_t *buffer, size_t size) override;
+        size_t write(uint8_t data) override;
+
+        String name();
+        uint32_t size();
+       
+};
+
 
 class Winbond25Q256JV {
     protected:
         uint8_t cs_pin;
         uint8_t hold_pin;
         bool is_ok = false;
-        SPISettings spi_settings = SPISettings(15000000, MSBFIRST, SPI_MODE0);
+        SPISettings spi_settings = SPISettings(20000000, MSBFIRST, SPI_MODE0);
         template <typename T>
         T transaction(std::function<T(uint8_t* err)> func);
         uint8_t readRegister(uint8_t reg_nr);
@@ -27,11 +51,10 @@ class Winbond25Q256JV {
         bool addrMode();
         bool isOK();
         uint8_t* read(uint32_t addr, uint32_t length);
-        void write(uint32_t addr, uint8_t* data, uint32_t length);
-
-        
-        //File* getAsFile();
-
+        void write(uint32_t addr, const uint8_t* data, uint32_t length);
+        void chipErase();
+        uint32_t totalMemory();
+        FlashStream* getFlashStream();
 };
 
 
