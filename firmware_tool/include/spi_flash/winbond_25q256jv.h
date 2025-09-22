@@ -1,5 +1,5 @@
-#ifndef winbond_25q256jv
-#define windbond_25q256jv
+#ifndef WINBOND_25Q256JV
+#define WINBOND_25Q256JV
 
 #include <FS.h>
 #include "Arduino.h"
