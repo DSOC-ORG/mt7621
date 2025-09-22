@@ -11,8 +11,11 @@ class Winbond25Q256JV;
 class FlashStream: public Stream {
     protected: 
         uint32_t currAddr = 0;
+        uint32_t currWriteAddr = 0;
         uint32_t load_addr = 0;
+        uint32_t load_write_addr = 0;
         uint8_t* read_data_buf;
+        uint8_t* write_data_buf;
         Winbond25Q256JV* flash;
     public:
         FlashStream(Winbond25Q256JV* flash);

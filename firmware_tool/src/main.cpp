@@ -23,7 +23,8 @@ WebServer server(80);
 
 void printAsMatrix(uint8_t *bytes, uint32_t len, uint32_t width);
 
-uint32_t curr_upload_addr = 0;
+
+FlashStream* writeStream = NULL;
 
 void setup()
 {
@@ -67,17 +68,20 @@ void setup()
 
                   if (upload.status == UPLOAD_FILE_START)
                   {
-                    curr_upload_addr = 0;
-                    //flash->chipErase();
+                      writeStream = flash->getFlashStream();
+                      //flash->chipErase();
                       Serial.println("Upload file start");
                   }
                   if (upload.status == UPLOAD_FILE_WRITE)
                   {
-                      flash->write(curr_upload_addr, upload.buf, upload.currentSize);
-                      curr_upload_addr += upload.currentSize;
+                      writeStream->write(upload.buf, upload.currentSize);
+                      Serial.printf("%d %d\r\n",upload.totalSize, upload.currentSize);
                   }
                   if (upload.status == UPLOAD_FILE_END)
                   {
+                      writeStream->flush();
+                      delete writeStream;
+                      writeStream = NULL;
                       Serial.println("Upload file end");
                   } });
     server.onNotFound([]()

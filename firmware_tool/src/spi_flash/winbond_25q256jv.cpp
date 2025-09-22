@@ -251,7 +251,6 @@ uint8_t *Winbond25Q256JV::read(uint32_t addr, uint32_t length)
 
 void Winbond25Q256JV::write(uint32_t addr, const uint8_t *data, uint32_t length)
 {
-    Serial.printf("Writing to %x, len %d\r\n", addr, length);
 
     while(isBusy()) {
         Serial.print(".");
@@ -259,14 +258,14 @@ void Winbond25Q256JV::write(uint32_t addr, const uint8_t *data, uint32_t length)
     uint32_t page_addr = addr & 0xFFFFFF00; // just trim the last byte
     // find offset from start
     uint8_t offset = addr - page_addr;
-    Serial.print("Offset");
-    Serial.print(offset);
-    Serial.println();
     // to not overwrite ( we have to read out )
-    uint8_t* data_in_offset = read(page_addr, offset);
+    uint8_t* data_in_offset = offset != 0 ? read(page_addr, offset) : NULL;
     // we want to keep track of written bytes
     uint32_t bytes_written = 0;
     // enable writing
+    uint32_t page_nr = 0;
+
+    Serial.printf("Writing to %x, len %d, offset %d, data %p\r\n", addr, length, offset, data);
 
     while(bytes_written != length) {   
         writeEnable();
@@ -274,29 +273,35 @@ void Winbond25Q256JV::write(uint32_t addr, const uint8_t *data, uint32_t length)
         // page write
         uint8_t bw = transaction<uint8_t>([&](uint8_t* err){
             int bytesw = 0;
-
+            //Serial.print(".");
+            //Serial.print(page_addr);
             spiCommand(err, CMD_WRITE_PAGE_4BYTE_ADDR);
             spiCommand32(err, page_addr);
             for(uint32_t i = 0; i < offset; i++) {
-                spiCommand(err, *(data_in_offset + i));
+                spiCommand(err, *(data_in_offset + (page_nr * 256) + i));
             }
             // we need to write the page
             for(uint32_t i = 0; i < std::min((uint32_t)(256 - offset), length - bytes_written); i++ ){   
                 //Serial.print("Writing byte:");
                 //Serial.println(*(data+i));
-                spiCommand(err, *(data+i));
+                spiCommand(err, *(data + (page_nr * 256) + i));
                 bytesw++;
             }
             return bytesw;
         });
         
         while(isBusy()) { 
-            Serial.print(".");
+            //Serial.print(".");
+            delayMicroseconds(10);
         }
         // move to other page
         bytes_written += bw;
+        if(offset && data_in_offset != NULL) {
+            free(data_in_offset);
+        }
         offset = 0;
         page_addr += 256;
+        page_nr++;
     }
   
     writeDisable();
@@ -312,6 +317,7 @@ void Winbond25Q256JV::chipErase()
 
     while(isBusy()) { 
         Serial.print(".");
+        delay(10);
     }
 }
 uint32_t Winbond25Q256JV::totalMemory()
