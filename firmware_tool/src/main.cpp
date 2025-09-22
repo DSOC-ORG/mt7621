@@ -62,14 +62,15 @@ void setup()
         server.streamFile(*fs, String("application/octet-stream"));
         delete fs; });
     server.on("/upload", HTTP_POST, [&]()
-              { server.send(200, "application/html", "<h1> Upload </h1>"); }, [&]()
+              { server.send(200, "application/html", "Upload complete"); }, [&]()
               {
                   HTTPUpload &upload = server.upload();
-
                   if (upload.status == UPLOAD_FILE_START)
                   {
                       writeStream = flash->getFlashStream();
-                      //flash->chipErase();
+                      if(server.hasArg("chipErase")){
+                        flash->chipErase();
+                      }
                       Serial.println("Upload file start");
                   }
                   if (upload.status == UPLOAD_FILE_WRITE)

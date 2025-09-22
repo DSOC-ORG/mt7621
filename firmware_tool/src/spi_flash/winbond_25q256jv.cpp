@@ -271,19 +271,19 @@ void Winbond25Q256JV::write(uint32_t addr, const uint8_t *data, uint32_t length)
         writeEnable();
 
         // page write
-        uint8_t bw = transaction<uint8_t>([&](uint8_t* err){
+        uint32_t bw = transaction<uint32_t>([&](uint8_t* err){
             int bytesw = 0;
-            //Serial.print(".");
-            //Serial.print(page_addr);
+            int to_write = std::min((uint32_t)(256 - offset), length - bytes_written);
+            //Serial.printf("%x %x %d %d %d %d %p\r\n", addr, page_addr, page_nr, to_write, length, bytes_written, data);
+
             spiCommand(err, CMD_WRITE_PAGE_4BYTE_ADDR);
             spiCommand32(err, page_addr);
             for(uint32_t i = 0; i < offset; i++) {
-                spiCommand(err, *(data_in_offset + (page_nr * 256) + i));
+                Serial.println("in offset");
+                spiCommand(err, *(data_in_offset + i));
             }
             // we need to write the page
-            for(uint32_t i = 0; i < std::min((uint32_t)(256 - offset), length - bytes_written); i++ ){   
-                //Serial.print("Writing byte:");
-                //Serial.println(*(data+i));
+            for(uint32_t i = 0; i < to_write; i++ ){   
                 spiCommand(err, *(data + (page_nr * 256) + i));
                 bytesw++;
             }
