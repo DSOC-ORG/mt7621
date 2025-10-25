@@ -1,0 +1,13 @@
+diff --git a/package/pkgconf/pkgconf.mk b/package/pkgconf/pkgconf.mk
+index a27c0840e5..e3a65bb2c5 100644
+--- a/package/pkgconf/pkgconf.mk
++++ b/package/pkgconf/pkgconf.mk
+@@ -5,7 +5,7 @@
+ ################################################################################
+ 
+ PKGCONF_VERSION = 0.8.9
+-PKGCONF_SITE = http://rabbit.dereferenced.org/~nenolod/distfiles
++PKGCONF_SITE = https://releases.pagure.org/pkgconf/pkgconf
+ PKGCONF_SOURCE = pkgconf-$(PKGCONF_VERSION).tar.bz2
+ PKGCONF_LICENSE = pkgconf license
+ PKGCONF_LICENSE_FILES = COPYING

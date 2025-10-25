@@ -1,0 +1,19 @@
+diff --git a/package/lzop/lzop.mk b/package/lzop/lzop.mk
+index 1b6a7e177c..735c8e711c 100644
+--- a/package/lzop/lzop.mk
++++ b/package/lzop/lzop.mk
+@@ -4,11 +4,13 @@
+ #
+ ################################################################################
+ 
+-LZOP_VERSION = 1.03
++LZOP_VERSION = 1.04
+ LZOP_SITE = http://www.lzop.org/download
+ LZOP_LICENSE = GPLv2+
+ LZOP_LICENSE_FILES = COPYING
+ LZOP_DEPENDENCIES = lzo
++LZOP_LIBTOOL_PATCH = NO
++
+ 
+ $(eval $(autotools-package))
+ $(eval $(host-autotools-package))
