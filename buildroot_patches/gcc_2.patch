@@ -1,0 +1,18 @@
+diff --git a/package/gcc/4.8.4/1002-fix-cfns.patch b/package/gcc/4.8.4/1002-fix-cfns.patch
+new file mode 100644
+index 0000000000..33758c3f42
+--- /dev/null
++++ b/package/gcc/4.8.4/1002-fix-cfns.patch
+@@ -0,0 +1,12 @@
++--- gcc-4.8.5/gcc/cp/cfns.h~	2013-01-21 06:55:05.000000000 -0800
+++++ gcc-4.8.5/gcc/cp/cfns.h 	2022-01-05 17:18:10.148547719 -0800
++@@ -53,6 +53,9 @@ __inline
++ static unsigned int hash (const char *, unsigned int);
++ #ifdef __GNUC__
++ __inline
+++#ifdef __GNUC_STDC_INLINE__
+++__attribute__ ((__gnu_inline__))
+++#endif
++ #endif
++ const char * libc_name_p (const char *, unsigned int);
++ /* maximum key range = 391, duplicates = 0 */
